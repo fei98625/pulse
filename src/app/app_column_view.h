@@ -17,7 +17,7 @@ bool HandleColumnStripMouseDown(AppState& s, const ui::WindowViewModel& vm,
 // Completes a press only if release still identifies the same visible row.
 bool FinishColumnStripMouseUp(AppState& s, const ui::WindowViewModel& vm,
                               const ui::HitTestResult& hit);
-bool UpdateColumnStripResize(AppState& s, int x);
+bool UpdateColumnStripResize(AppState& s, int x, int y);
 // Double-click on a divider fits current filenames once and locks that folder's width.
 void ResetColumnStripWidth(AppState& s, const ui::HitTestResult& hit);
 void EndColumnStripResize(AppState& s, bool commit = true);

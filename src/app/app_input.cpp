@@ -2193,12 +2193,12 @@ LRESULT HandleMouseMove(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             return 0;
         }
 
-        if (s->stripResizing || s->stripHScrolling) {
+        if (s->stripResizeCandidate || s->stripResizing || s->stripHScrolling) {
             if ((GetKeyState(VK_LBUTTON) & 0x8000) == 0) {
                 EndColumnStripResize(*s);
                 if (GetCapture() == hwnd) ReleaseCapture();
             } else {
-                UpdateColumnStripResize(*s, mx);
+                UpdateColumnStripResize(*s, mx, my);
             }
             return 0;
         }
@@ -5387,7 +5387,8 @@ LRESULT HandleKeyDown(AppState* s, HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
-        if (wParam == VK_ESCAPE && (s->stripResizing || s->stripHScrolling)) {
+        if (wParam == VK_ESCAPE &&
+            (s->stripResizeCandidate || s->stripResizing || s->stripHScrolling)) {
             EndColumnStripResize(*s, false);
             if (GetCapture() == hwnd) ReleaseCapture();
             InvalidateRect(hwnd, nullptr, FALSE);

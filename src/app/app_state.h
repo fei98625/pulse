@@ -412,10 +412,12 @@ struct AppState : AppCoreOwner {
     int columnResizePane = -1;
 
     // Column view divider drag and click bookkeeping (app_column_view.cpp).
+    bool stripResizeCandidate = false;
     bool stripResizing = false;
     int stripResizePane = -1;
     int stripResizeColumn = -1;
     int stripResizeStartX = 0;
+    int stripResizeStartY = 0;
     float stripResizeStartDip = 0.0f;
     app::Tab* stripResizeTab = nullptr;
     std::wstring stripResizePath;

@@ -255,7 +255,9 @@ bool ScrollStripBy(AppState& s, const ui::WindowViewModel& vm, int pane_index, f
     const float scale = s.scale > 0.0f ? s.scale : 1.0f;
     float& offset = tab->column_strip.scroll_left_dip;
     const float current = offset < 0.0f ? layout.scroll_px / scale : offset;
-    offset = std::clamp(current - delta_dip, 0.0f, layout.max_scroll_px / scale);
+    const float next = std::clamp(current - delta_dip, 0.0f, layout.max_scroll_px / scale);
+    if (next == current) return false;
+    offset = next;
     InvalidateRect(s.hwnd, nullptr, FALSE);
     return true;
 }
@@ -359,11 +361,13 @@ bool HandleColumnStripMouseDown(AppState& s, const ui::WindowViewModel& vm,
         if (!tab) return true;
         const size_t slot = ui::ColumnStripWidthSlot(hit.sub_index,
                                                      tab->column_strip.ancestors.size());
-        s.stripResizing = true;
+        s.stripResizeCandidate = true;
+        s.stripResizing = false;
         s.stripHScrolling = false;
         s.stripResizePane = hit.pane_index;
         s.stripResizeColumn = hit.sub_index;
         s.stripResizeStartX = x;
+        s.stripResizeStartY = y;
         const ui::PaneViewModel* pane = SlotPane(vm, hit.pane_index);
         s.stripResizeStartDip = ui::ColumnStripWidthDip(
             pane ? pane->column_strip.widths_dip : tab->column_widths_dip, slot);
@@ -541,7 +545,7 @@ std::wstring ColumnStripDropPath(AppState& s, const ui::HitTestResult& hit) {
                                       hit.region == ui::HitTestResult::ColumnStripRow);
 }
 
-bool UpdateColumnStripResize(AppState& s, int x) {
+bool UpdateColumnStripResize(AppState& s, int x, int y) {
     if (s.stripHScrolling) {
         app::Tab* tab = TabAtSlot(s, s.stripResizePane);
         if (!tab || tab != s.stripResizeTab) {
@@ -554,6 +558,15 @@ bool UpdateColumnStripResize(AppState& s, int x) {
             std::clamp(s.stripHScrollStartDip + moved, 0.0f, s.stripHScrollMaxDip);
         InvalidateRect(s.hwnd, nullptr, FALSE);
         return true;
+    }
+    if (s.stripResizeCandidate) {
+        const int drag_x = (std::max)(GetSystemMetrics(SM_CXDRAG), 1);
+        const int drag_y = (std::max)(GetSystemMetrics(SM_CYDRAG), 1);
+        if (std::abs(x - s.stripResizeStartX) < drag_x &&
+            std::abs(y - s.stripResizeStartY) < drag_y)
+            return true;
+        s.stripResizeCandidate = false;
+        s.stripResizing = true;
     }
     if (!s.stripResizing) return false;
     app::Tab* tab = TabAtSlot(s, s.stripResizePane);
@@ -624,7 +637,7 @@ void ResetColumnStripWidth(AppState& s, const ui::HitTestResult& hit) {
 }
 
 void EndColumnStripResize(AppState& s, bool commit) {
-    if (!s.stripResizing && !s.stripHScrolling) return;
+    if (!s.stripResizeCandidate && !s.stripResizing && !s.stripHScrolling) return;
     if (s.stripHScrolling && !commit && s.stripResizeTab) {
         app::Tab* tab = TabAtSlot(s, s.stripResizePane);
         if (tab == s.stripResizeTab)
@@ -639,6 +652,7 @@ void EndColumnStripResize(AppState& s, bool commit) {
                 tab->column_strip.widths_by_path.erase(s.stripResizePath);
         }
     }
+    s.stripResizeCandidate = false;
     s.stripResizing = false;
     s.stripHScrolling = false;
     s.stripResizePane = -1;
@@ -664,16 +678,21 @@ bool HandleColumnStripWheel(AppState& s, const ui::WindowViewModel& vm,
     using R = ui::HitTestResult;
     const bool over_column = hit.region == R::ColumnStripRow ||
         hit.region == R::ColumnStripBlank;
+    // The divider belongs to the column strip's horizontal gesture surface
+    // when it is only hovered.  A left-button press is handled separately by
+    // the resize path, so allowing horizontal wheel input here does not turn
+    // a resize into a scroll.
+    const bool over_column_divider = hit.region == R::ColumnStripDivider &&
+        !s.stripResizing && !s.stripHScrolling;
     const bool horizontal = hit.region == R::ColumnStripHScroll ||
-        (horizontal_input && over_column) ||
+        (horizontal_input && (over_column || over_column_divider)) ||
         ((GetKeyState(VK_SHIFT) & 0x8000) != 0 &&
          hit.sub_index != ui::kColumnStripChildId &&
-         over_column);
+         (over_column || over_column_divider));
     if (horizontal) {
         // Wheel up reveals farther ancestors (to the left).
-        ScrollStripBy(s, vm, hit.pane_index,
-                      static_cast<float>(wheel_delta) / WHEEL_DELTA * 96.0f);
-        return true;
+        return ScrollStripBy(s, vm, hit.pane_index,
+                             static_cast<float>(wheel_delta) / WHEEL_DELTA * 96.0f);
     }
     if (hit.region != R::ColumnStripRow && hit.region != R::ColumnStripBlank) return false;
     app::Tab* tab = TabAtSlot(s, hit.pane_index);

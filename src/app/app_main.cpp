@@ -2495,8 +2495,7 @@ LRESULT CALLBACK WndProcImpl(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
             return TRUE;
         }
-        if (s->columnResizing || hit.region == ui::HitTestResult::ColumnDivider ||
-            s->stripResizing || hit.region == ui::HitTestResult::ColumnStripDivider) {
+        if (s->columnResizing || s->stripResizing) {
             SetCursor(LoadCursorW(nullptr, IDC_SIZEWE));
             return TRUE;
         }

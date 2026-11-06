@@ -304,9 +304,9 @@ void MainRenderer::DrawColumnStrip(const WindowViewModel& vm, const PaneViewMode
             (lx < strip.viewport.left || lx > strip.viewport.right + 0.5f)) {
             continue;
         }
-        const bool hot = cs.resize_column == divider.id ||
-            (vm.hover_region == static_cast<int>(HitTestResult::ColumnStripDivider) &&
-             vm.hover_pane_index == pane_index && vm.hover_sub_index == divider.id);
+        // A divider is an affordance for an explicit press/drag, not a hover
+        // control. Keep it visually quiet until the resize has captured input.
+        const bool hot = cs.resize_column == divider.id;
         const float line_w = hot ? 2.0f * scale_ : std::max(1.0f, scale_);
         MakeBrush(dc, hot ? theme.accent : theme.stroke_divider, brAccent_);
         const float inset = hot ? 0.0f : 6.0f * scale_;
