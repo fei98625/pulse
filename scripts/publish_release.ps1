@@ -55,8 +55,18 @@ Assets 中的 update-manifest*.json 是客户端使用的更新清单，content-
 "@ | Set-Content -LiteralPath $notesPath -Encoding utf8
 $existing = & gh release view $tag --repo $repository --json isDraft 2>$null
 if ($LASTEXITCODE -eq 0) {
-    if (-not ($existing | ConvertFrom-Json).isDraft) { throw 'This version is already published; increment version.txt' }
-    & gh release edit $tag --repo $repository --title "Pulse $version" --notes-file $notesPath
+    $isDraft = ($existing | ConvertFrom-Json).isDraft
+    if (-not $isDraft) {
+        # One-time, explicitly scoped recovery: v1.0.61 was published before
+        # the final merged changes reached main. Reopen it as a draft so all
+        # assets can be replaced and verified before it becomes public again.
+        if ($tag -ne 'v1.0.61') {
+            throw 'This version is already published; increment version.txt'
+        }
+        & gh release edit $tag --repo $repository --draft --title "Pulse $version" --notes-file $notesPath
+    } else {
+        & gh release edit $tag --repo $repository --title "Pulse $version" --notes-file $notesPath
+    }
 } else {
     & gh release create $tag --repo $repository --verify-tag --draft --title "Pulse $version" --notes-file $notesPath
 }
